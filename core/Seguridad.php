@@ -10,7 +10,7 @@ declare(strict_types=1);
  *
  * ─── Split Token Pattern ───────────────────────────────────────────────────
  *  El token completo que viaja en la COOKIE tiene la forma:
- *      <selector>:<validador_claro>
+ *      <selector>|<validador_claro>
  *
  *  Lo que se persiste en la BASE DE DATOS (tabla auth_tokens):
  *      • selector       → permite recuperar el registro sin escaneo completo.
@@ -23,6 +23,19 @@ declare(strict_types=1);
  */
 class Seguridad
 {
+    // =========================================================================
+    // CONSTANTES
+    // =========================================================================
+
+    /**
+     * Separador interno del Split Token dentro del valor de la cookie.
+     * Fuente única de verdad: usar Seguridad::TOKEN_SEPARATOR en todo el código.
+     *
+     * FIX M1: Centralizado para evitar inconsistencias entre LoginController,
+     * LogoutController e index.php.
+     */
+    public const TOKEN_SEPARATOR = '|';
+
     /**
      * No se permiten instancias; todos los métodos son estáticos.
      */

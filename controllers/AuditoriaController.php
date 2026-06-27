@@ -48,10 +48,10 @@ try {
     $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // En caso de fallo la vista recibe un arreglo vacío y un mensaje de error.
-    $registros       = [];
-    $error_auditoria = 'Error al consultar la bitácora: ' . $e->getMessage();
+    // FIX M2: Error interno; no exponer detalles al usuario autenticado.
     error_log('AuditoriaController — PDOException: ' . $e->getMessage());
+    $registros       = [];
+    $error_auditoria = 'Error al consultar la bitácora. Contacta al administrador.';
 }
 
 // ── 4. Inyección a la Vista ───────────────────────────────────────────────────

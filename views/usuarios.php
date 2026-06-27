@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * views/usuarios.php - Vista parcial del modulo IAM.
  * Variables: $lista_usuarios (array), $mensaje_usuarios (string|null)
@@ -137,6 +137,8 @@
     </div>
 
     <form method="POST" action="/usuarios" novalidate id="form-crear-usuario">
+        <!-- FIX A2: Token CSRF — generado por index.php en sesión segura -->
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token ?? '', ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="accion" value="crear">
 
         <div class="iam-form-grid">
@@ -259,6 +261,8 @@
                                 <div class="iam-actions-wrap">
 
                                     <form method="POST" action="/usuarios" class="iam-mini-form" id="form-nivel-<?= $safe_id ?>">
+                                        <!-- FIX A2: Token CSRF -->
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                         <input type="hidden" name="accion"     value="cambiar_nivel">
                                         <input type="hidden" name="usuario_id" value="<?= $safe_id ?>">
                                         <select name="nuevo_nivel" class="iam-mini-select" id="select-nivel-<?= $safe_id ?>" aria-label="Nuevo nivel usuario #<?= $safe_id ?>">
@@ -283,6 +287,8 @@
                                     <div class="iam-sep"></div>
 
                                     <form method="POST" action="/usuarios" class="iam-mini-form" id="form-estatus-<?= $safe_id ?>">
+                                        <!-- FIX A2: Token CSRF -->
+                                        <input type="hidden" name="csrf_token"      value="<?= htmlspecialchars($csrf_token ?? '', ENT_QUOTES, 'UTF-8') ?>">
                                         <input type="hidden" name="accion"         value="toggle_estatus">
                                         <input type="hidden" name="usuario_id"     value="<?= $safe_id ?>">
                                         <input type="hidden" name="estatus_actual" value="<?= $activo ?>">

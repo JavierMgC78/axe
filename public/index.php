@@ -1,5 +1,14 @@
 <?php
 define('BASE_PATH', dirname(__DIR__));
+
+// ── FIX B1: Headers de seguridad HTTP ────────────────────────────────────────
+// Se envían antes de cualquier output para garantizar su presencia en toda
+// respuesta del framework.
+header("X-Content-Type-Options: nosniff");
+header("X-Frame-Options: DENY");
+header("Referrer-Policy: strict-origin-when-cross-origin");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self';");
+
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $rutas = require BASE_PATH . '/config/rutas_cache.php';
 
@@ -10,7 +19,7 @@ if (!array_key_exists($uri, $rutas)) {
 
 $ruta_activa = $rutas[$uri];
 
-// 5. Middleware: Autenticación, Autorización e Identidad Global
+// ── 5. Middleware: Autenticación, Autorización e Identidad Global ─────────────
 $usuario_autenticado_id = null;
 $usuario_nivel = 0;
 $usuario_activo = 0;
@@ -18,67 +27,113 @@ $usuario_activo = 0;
 if (isset($_COOKIE['axe_auth'])) {
     require_once BASE_PATH . '/config/database.php';
     require_once BASE_PATH . '/core/Seguridad.php';
-    
-    $partes_cookie = explode('|', $_COOKIE['axe_auth']);
+
+    // FIX M1: Usar la constante centralizada para el separador del token
+    $partes_cookie = explode(Seguridad::TOKEN_SEPARATOR, $_COOKIE['axe_auth'], 2);
     if (count($partes_cookie) === 2) {
-        $selector = $partes_cookie[0];
+        $selector        = $partes_cookie[0];
         $validador_claro = $partes_cookie[1];
-        
+
         // JOIN para traer la jerarquía y el estatus del usuario
-        $sql = "SELECT t.usuario_id, t.validador_hash, t.expiracion, u.nivel_acceso, u.activo 
-                FROM auth_tokens t 
-                JOIN usuarios u ON t.usuario_id = u.id 
+        $sql = "SELECT t.usuario_id, t.validador_hash, t.expiracion, u.nivel_acceso, u.activo
+                FROM auth_tokens t
+                JOIN usuarios u ON t.usuario_id = u.id
                 WHERE t.selector = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$selector]);
         $registro = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if ($registro && $registro['expiracion'] > date('Y-m-d H:i:s')) {
             if (Seguridad::verificarToken($registro['validador_hash'], $validador_claro)) {
                 $usuario_autenticado_id = $registro['usuario_id'];
-                $usuario_nivel = (int) $registro['nivel_acceso'];
+                $usuario_nivel  = (int) $registro['nivel_acceso'];
                 $usuario_activo = (int) $registro['activo'];
             }
         }
     }
 }
 
+// ── FIX A2: Generar token CSRF para usuarios autenticados ─────────────────────
+// Se usa la sesión PHP exclusivamente para el token CSRF.
+// La arquitectura de autenticación (Split Token en cookie) no se altera.
+$csrf_token = '';
+if ($usuario_autenticado_id) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    $csrf_token = $_SESSION['csrf_token'];
+}
+
 // B. Aduana de Acceso y Autorización Jerárquica
 if (isset($ruta_activa['requiere_login']) && $ruta_activa['requiere_login'] == 1) {
-    
+
     // Filtro 1: Identidad
     if (!$usuario_autenticado_id) {
         setcookie('axe_auth', '', time() - 3600, '/');
         header("Location: /login");
         exit;
     }
-    
+
     // Filtro 2: Estatus (¿Está suspendido?)
     if ($usuario_activo !== 1) {
         http_response_code(403);
-        $titulo_error = "Cuenta Suspendida";
-        $mensaje_error = "Tu acceso al sistema ha sido revocado. Por favor, contacta a coordinación para más detalles.";
+        $titulo_error   = "Cuenta Suspendida";
+        $mensaje_error  = "Tu acceso al sistema ha sido revocado. Por favor, contacta a coordinación para más detalles.";
         require BASE_PATH . '/views/403.php';
         exit;
     }
-    
+
     // Filtro 3: Jerarquía Matemática
     $nivel_requerido = isset($ruta_activa['nivel_minimo']) ? (int) $ruta_activa['nivel_minimo'] : 0;
     if ($usuario_nivel < $nivel_requerido) {
         http_response_code(403);
-        $titulo_error = "Acceso Restringido";
+        $titulo_error  = "Acceso Restringido";
         $mensaje_error = "Esta área requiere un nivel de autorización superior (Nivel $nivel_requerido). Tu nivel actual es $usuario_nivel.";
         require BASE_PATH . '/views/403.php';
         exit;
     }
 }
 
-// 6. Carga de vistas y controladores
-$ruta_vista = BASE_PATH . '/' . $ruta_activa['vista'];
-$ruta_plantilla = BASE_PATH . '/' . $ruta_activa['plantilla'];
+// ── 6. Carga de vistas y controladores ───────────────────────────────────────
+
+// ── FIX C2: Validar que vista y plantilla estén dentro de sus directorios ─────
+// Resolve las rutas para detectar cualquier intento de path traversal.
+$views_dir     = realpath(BASE_PATH . '/views');
+$templates_dir = realpath(BASE_PATH . '/templates');
+$controllers_dir = realpath(BASE_PATH . '/controllers');
+
+$ruta_vista_raw     = BASE_PATH . '/' . $ruta_activa['vista'];
+$ruta_plantilla_raw = BASE_PATH . '/' . $ruta_activa['plantilla'];
+
+$ruta_vista     = realpath($ruta_vista_raw);
+$ruta_plantilla = realpath($ruta_plantilla_raw);
+
+if (!$ruta_vista || !str_starts_with($ruta_vista, $views_dir)) {
+    http_response_code(500);
+    error_log("Axe Security: vista fuera de directorio permitido: " . $ruta_activa['vista']);
+    exit("Error interno del servidor.");
+}
+
+if (!$ruta_plantilla || !str_starts_with($ruta_plantilla, $templates_dir)) {
+    http_response_code(500);
+    error_log("Axe Security: plantilla fuera de directorio permitido: " . $ruta_activa['plantilla']);
+    exit("Error interno del servidor.");
+}
 
 if (isset($ruta_activa['controlador']) && !empty($ruta_activa['controlador'])) {
-    $ruta_controlador = BASE_PATH . '/' . $ruta_activa['controlador'];
+    $ruta_controlador_raw = BASE_PATH . '/' . $ruta_activa['controlador'];
+    $ruta_controlador     = realpath($ruta_controlador_raw);
+
+    // FIX C2: El controlador debe existir y estar dentro de /controllers
+    if (!$ruta_controlador || !str_starts_with($ruta_controlador, $controllers_dir)) {
+        http_response_code(500);
+        error_log("Axe Security: controlador fuera de directorio permitido: " . $ruta_activa['controlador']);
+        exit("Error interno del servidor.");
+    }
+
     require $ruta_controlador;
     if (isset($datos_vista) && is_array($datos_vista)) {
         extract($datos_vista);
@@ -90,6 +145,6 @@ require $ruta_vista;
 $contenido_vista = ob_get_clean();
 
 $css_vista = $ruta_activa['css'] ?? [];
-$js_vista = $ruta_activa['js'] ?? [];
+$js_vista  = $ruta_activa['js']  ?? [];
 
 require $ruta_plantilla;

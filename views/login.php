@@ -33,11 +33,6 @@
             novalidate
             autocomplete="off"
         >
-        <?php if (isset($error)): ?>
-            <div style="background-color: #fee2e2; color: #991b1b; border: 1px solid #ef4444; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
-                <strong>Error:</strong> <?= $error ?>
-            </div>
-        <?php endif; ?>
             <div class="form-group">
                 <label class="form-label" for="email">Correo electrónico</label>
                 <div class="input-wrapper">

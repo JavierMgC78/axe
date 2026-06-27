@@ -9,11 +9,15 @@ declare(strict_types=1);
  * ─────────────────────────────────────────────────────────────────────────────
  * Responsabilidades:
  *   1. Leer $usuario_autenticado_id inyectado por el Middleware.
- *   2. Escuchar peticiones POST e identificar la acción a ejecutar:
+ *   2. FIX A2: Validar token CSRF en toda petición POST.
+ *   3. Escuchar peticiones POST e identificar la acción a ejecutar:
  *        • crear         → Registra un nuevo usuario en la tabla `usuarios`.
  *        • cambiar_nivel → Actualiza el nivel_acceso de un usuario existente.
  *        • toggle_estatus → Invierte el campo `activo` (Soft Delete / reactivación).
- *   3. Consultar todos los usuarios (GET) y exponerlos en $datos_vista.
+ *   4. FIX M4: Auditar SOLO si la operación en BD fue exitosa (dentro del try).
+ *   5. FIX M2: Los errores de BD se loguean internamente; el usuario recibe
+ *              mensajes genéricos sin detalle de infraestructura.
+ *   6. Consultar todos los usuarios (GET) y exponerlos en $datos_vista.
  *
  * Precondición: el Middleware validó el Split Token; $usuario_autenticado_id
  * siempre contiene un entero válido al llegar aquí.
@@ -25,7 +29,7 @@ declare(strict_types=1);
 global $usuario_autenticado_id;
 
 // ── 2. Dependencias ───────────────────────────────────────────────────────────
-// La clase Seguridad se carga a través del autoloader o del front controller.
+require_once BASE_PATH . '/core/Seguridad.php';
 /** @var PDO $pdo */
 $pdo = require BASE_PATH . '/config/database.php';
 
@@ -38,14 +42,21 @@ $mensaje_usuarios = null;
 // ── 3. Manejador de Acciones (POST) ──────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    // ── FIX A2: Validar token CSRF ────────────────────────────────────────────
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $csrf_recibido = (string) filter_input(INPUT_POST, 'csrf_token', FILTER_DEFAULT);
+    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrf_recibido)) {
+        http_response_code(403);
+        exit('Token CSRF inválido. Recarga la página e inténtalo de nuevo.');
+    }
+
     // Identificar la acción solicitada.
     $accion = trim((string) filter_input(INPUT_POST, 'accion', FILTER_DEFAULT));
 
     // ── 3a. CREAR nuevo usuario ───────────────────────────────────────────────
     if ($accion === 'crear') {
-
-        // 1. IMPORTAR LA CLASE DE SEGURIDAD (Esto evitaba que el código avanzara)
-        require_once BASE_PATH . '/core/Seguridad.php';
 
         // Captura y saneamiento de campos.
         $email        = trim((string) filter_input(INPUT_POST, 'email',        FILTER_DEFAULT));
@@ -61,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password_hash_seguro = Seguridad::hashearPassword($password);
 
         try {
-            // 2. CORRECCIÓN: La columna correcta es password_hash
             $stmt = $pdo->prepare(
                 'INSERT INTO usuarios (email, password_hash, nivel_acceso, activo)
                  VALUES (:email, :password_hash, :nivel_acceso, 1)'
@@ -73,20 +83,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':nivel_acceso'  => $nivel_acceso,
             ]);
 
-            // ── REGISTRO FORENSE DE AUDITORÍA ──
+            // FIX M4: Auditar SOLO si el INSERT fue exitoso
             Auditoria::registrar((int) $usuario_autenticado_id, 'USUARIO_CREADO', 'iam', [
                 'nuevo_email'    => $email,
                 'nivel_asignado' => $nivel_acceso
             ]);
-            // ──────────────────────────────────────────
 
             $mensaje_usuarios = '✅ Usuario "' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '" creado correctamente.';
 
         } catch (PDOException $e) {
+            // FIX M2: Loguear internamente, mensaje genérico al usuario
+            error_log('UsuariosController [crear]: ' . $e->getMessage());
             if ($e->getCode() === '23000') {
                 $mensaje_usuarios = '❌ Error: el email "' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '" ya está registrado.';
             } else {
-                $mensaje_usuarios = '❌ Error en BD: ' . $e->getMessage();
+                $mensaje_usuarios = '❌ Error interno al crear el usuario. Contacta al administrador.';
             }
         }
 
@@ -106,19 +117,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $stmt->execute([$nuevo_nivel, $usuario_id]);
 
+            // FIX M4: Auditar SOLO si el UPDATE fue exitoso (dentro del try)
+            Auditoria::registrar((int) $usuario_autenticado_id, 'CAMBIO_NIVEL', 'iam', [
+                'usuario_afectado_id' => $usuario_id,
+                'nuevo_nivel'         => $nuevo_nivel
+            ]);
+
             $mensaje_usuarios = 'Nivel de acceso del usuario #' . $usuario_id . ' actualizado a ' . $nuevo_nivel . '.';
 
         } catch (PDOException $e) {
-            $mensaje_usuarios = 'Error al cambiar el nivel de acceso: ' . $e->getMessage();
+            // FIX M2: Loguear internamente, mensaje genérico al usuario
+            error_log('UsuariosController [cambiar_nivel]: ' . $e->getMessage());
+            $mensaje_usuarios = '❌ Error interno al cambiar el nivel de acceso. Contacta al administrador.';
         }
-
-        // ── REGISTRO FORENSE (fuera del try para no silenciar errores de negocio) ──
-        // Usa $usuario_autenticado_id inyectado por el Middleware, NO $_SESSION.
-        Auditoria::registrar((int) $usuario_autenticado_id, 'CAMBIO_NIVEL', 'iam', [
-            'usuario_afectado_id' => $usuario_id,
-            'nuevo_nivel'         => $nuevo_nivel
-        ]);
-        // ────────────────────────────────────────────────────────────────────────────
 
     // ── 3c. TOGGLE ESTATUS (Soft Delete / Reactivación) ──────────────────────
     } elseif ($accion === 'toggle_estatus') {
@@ -138,20 +149,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $stmt->execute([$nuevo_estatus, $usuario_id]);
 
+            // FIX M4: Auditar SOLO si el UPDATE fue exitoso (dentro del try)
+            Auditoria::registrar((int) $usuario_autenticado_id, 'TOGGLE_ESTATUS', 'iam', [
+                'usuario_afectado_id' => $usuario_id,
+                'estatus_asignado'    => $nuevo_estatus
+            ]);
+
             $etiqueta         = ($nuevo_estatus === 0) ? 'suspendido' : 'reactivado';
             $mensaje_usuarios = 'Usuario #' . $usuario_id . ' ' . $etiqueta . ' correctamente.';
 
         } catch (PDOException $e) {
-            $mensaje_usuarios = 'Error al cambiar el estatus del usuario: ' . $e->getMessage();
+            // FIX M2: Loguear internamente, mensaje genérico al usuario
+            error_log('UsuariosController [toggle_estatus]: ' . $e->getMessage());
+            $mensaje_usuarios = '❌ Error interno al cambiar el estatus del usuario. Contacta al administrador.';
         }
-
-        // ── REGISTRO FORENSE (fuera del try para no silenciar errores de negocio) ──
-        // Usa $usuario_autenticado_id inyectado por el Middleware, NO $_SESSION.
-        Auditoria::registrar((int) $usuario_autenticado_id, 'TOGGLE_ESTATUS', 'iam', [
-            'usuario_afectado_id' => $usuario_id,
-            'estatus_asignado'    => $nuevo_estatus
-        ]);
-        // ────────────────────────────────────────────────────────────────────────────
     }
 }
 
@@ -167,6 +178,7 @@ try {
     $lista_usuarios = $stmt_lista->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
+    error_log('UsuariosController [listar]: ' . $e->getMessage());
     // En caso de fallo la vista recibirá un arreglo vacío.
     $lista_usuarios = [];
 }
@@ -175,6 +187,6 @@ try {
 // El front controller llama a extract($datos_vista) antes de incluir la vista,
 // por lo que cada clave se convierte en una variable local disponible en el HTML.
 $datos_vista = [
-    'lista_usuarios'  => $lista_usuarios,
+    'lista_usuarios'   => $lista_usuarios,
     'mensaje_usuarios' => $mensaje_usuarios ?? null,
 ];

@@ -10,24 +10,31 @@ declare(strict_types=1);
  * Responsabilidades:
  *   1. Mostrar la vista de login en peticiones GET (sin acción adicional).
  *   2. Procesar credenciales en peticiones POST:
- *      a. Buscar al usuario por email en la BD.
- *      b. Verificar la contraseña con Seguridad::verificarPassword().
- *      c. Si las credenciales son válidas, generar un Split Token,
+ *      a. FIX A3: Verificar rate limiting por IP (máx. 10 intentos / 15 min).
+ *      b. Buscar al usuario por email en la BD.
+ *      c. Verificar la contraseña con Seguridad::verificarPassword().
+ *      d. Si las credenciales son válidas, generar un Split Token,
  *         persistirlo en la tabla auth_tokens y enviarlo al cliente
  *         como cookie HttpOnly + Secure.
- *      d. Si las credenciales son inválidas, exponer $error con un mensaje
+ *      e. FIX B3: Limpiar probabilísticamente tokens expirados.
+ *      f. Si las credenciales son inválidas, exponer $error con un mensaje
  *         genérico (no revela qué campo fue incorrecto → anti-enumeración).
  *
  * Patrón Split Token:
- *   Cookie → selector|validador_claro
+ *   Cookie → selector|validador_claro   (FIX M1: separador centralizado)
  *   BD     → selector (índice único), hash SHA-256 del validador_claro
  *
- * El front controller (public/index.php) realiza:
- *   require $ruta_controlador;
- *   if (isset($datos_vista) && is_array($datos_vista)) { extract($datos_vista); }
+ * FIX C3: La cookie lleva secure=true. En desarrollo local (HTTP) el token
+ * funciona igual; en producción (HTTPS) se activa la protección de transporte.
  *
- * Por eso $error debe incluirse dentro de $datos_vista para que la
- * vista la reciba correctamente.
+ * FIX A3: Rate limiting — requiere la tabla login_attempts en la BD:
+ *   CREATE TABLE login_attempts (
+ *     id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ *     ip         VARCHAR(45)  NOT NULL,
+ *     exitoso    TINYINT(1)   NOT NULL DEFAULT 0,
+ *     creado_en  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ *     INDEX idx_ip_fecha (ip, creado_en)
+ *   );
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -58,6 +65,31 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 $pdo = require BASE_PATH . '/config/database.php';
 require_once BASE_PATH . '/core/Seguridad.php';
 
+// ── FIX A3: Rate Limiting por IP ──────────────────────────────────────────────
+// Protege contra fuerza bruta y credential stuffing.
+// Si la tabla login_attempts no existe (instalación nueva), se degrada
+// silenciosamente sin bloquear el flujo normal.
+$ip_cliente = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+try {
+    $stmt_rate = $pdo->prepare(
+        "SELECT COUNT(*) FROM login_attempts
+         WHERE ip = ? AND exitoso = 0
+         AND creado_en > DATE_SUB(NOW(), INTERVAL 15 MINUTE)"
+    );
+    $stmt_rate->execute([$ip_cliente]);
+    $intentos_fallidos = (int) $stmt_rate->fetchColumn();
+
+    if ($intentos_fallidos >= 10) {
+        // Delay adicional para ralentizar herramientas automatizadas
+        sleep(2);
+        $datos_vista = ['error' => 'Demasiados intentos fallidos. Espera 15 minutos antes de reintentar.'];
+        return;
+    }
+} catch (PDOException) {
+    // La tabla login_attempts no existe; continuar sin rate limiting.
+    // Ejecutar el SQL del docblock para activar esta protección.
+}
+
 // ── 3. Búsqueda del usuario por email ─────────────────────────────────────────
 try {
     $stmt = $pdo->prepare(
@@ -66,7 +98,7 @@ try {
     $stmt->execute([':email' => $email]);
     $usuario = $stmt->fetch();
 } catch (PDOException $e) {
-    // Error de BD: mensaje genérico al usuario, no se filtra información interna.
+    error_log('LoginController [buscar_usuario]: ' . $e->getMessage());
     $datos_vista = ['error' => 'Credenciales incorrectas.'];
     return;
 }
@@ -74,10 +106,20 @@ try {
 // ── 4. Verificación de contraseña ─────────────────────────────────────────────
 // Mensaje idéntico tanto si el usuario no existe como si la contraseña falla
 // → mitiga ataques de enumeración de usuarios.
-if (
-    $usuario === false ||
-    !Seguridad::verificarPassword($password, (string) $usuario['password_hash'])
-) {
+$credenciales_validas = (
+    $usuario !== false &&
+    Seguridad::verificarPassword($password, (string) $usuario['password_hash'])
+);
+
+// ── FIX A3: Registrar intento ─────────────────────────────────────────────────
+try {
+    $pdo->prepare("INSERT INTO login_attempts (ip, exitoso) VALUES (?, ?)")
+        ->execute([$ip_cliente, $credenciales_validas ? 1 : 0]);
+} catch (PDOException) {
+    // Tabla no existe; continuar.
+}
+
+if (!$credenciales_validas) {
     $datos_vista = ['error' => 'Credenciales incorrectas.'];
     return;
 }
@@ -86,7 +128,7 @@ if (
 try {
     $token = Seguridad::generarSplitToken();
 } catch (\Random\RandomException $e) {
-    // Si el CSPRNG falla, no se puede autenticar de forma segura.
+    error_log('LoginController [generarSplitToken]: ' . $e->getMessage());
     $datos_vista = ['error' => 'Credenciales incorrectas.'];
     return;
 }
@@ -96,9 +138,19 @@ $validador_claro = $token['validador_claro'];
 $validador_hash  = $token['validador_hash'];
 
 // ── 6. Fecha de expiración (30 días) ──────────────────────────────────────────
-$segundos_expiracion = 30 * 24 * 60 * 60;                         // 2 592 000 s
+$segundos_expiracion  = 30 * 24 * 60 * 60;                         // 2 592 000 s
 $timestamp_expiracion = time() + $segundos_expiracion;
 $fecha_expiracion_db  = date('Y-m-d H:i:s', $timestamp_expiracion);
+
+// ── FIX B3: Limpieza probabilística de tokens expirados (1% de las veces) ────
+// Evita que auth_tokens crezca indefinidamente sin añadir latencia siempre.
+if (random_int(1, 100) === 1) {
+    try {
+        $pdo->exec("DELETE FROM auth_tokens WHERE expiracion < NOW()");
+    } catch (PDOException $e) {
+        error_log('LoginController [purgar_tokens]: ' . $e->getMessage());
+    }
+}
 
 // ── 7. Persistir el token en la base de datos ─────────────────────────────────
 try {
@@ -107,35 +159,39 @@ try {
          VALUES (:usuario_id, :selector, :validador_hash, :expiracion)'
     );
     $insert->execute([
-        ':usuario_id'    => (int) $usuario['id'],
-        ':selector'      => $selector,
+        ':usuario_id'     => (int) $usuario['id'],
+        ':selector'       => $selector,
         ':validador_hash' => $validador_hash,
-        ':expiracion'    => $fecha_expiracion_db,
+        ':expiracion'     => $fecha_expiracion_db,
     ]);
 } catch (PDOException $e) {
-    // Fallo al persistir: no dejamos autenticar al usuario si no podemos
-    // guardar el token (integridad del sistema de sesiones).
+    error_log('LoginController [insertar_token]: ' . $e->getMessage());
     $datos_vista = ['error' => 'Credenciales incorrectas.'];
     return;
 }
 
 // ── 8. Componer el valor de la cookie (Split Token para el cliente) ────────────
-// Formato: selector|validador_claro
-// El servidor reconoce la sesión buscando el selector en la BD y
-// verificando el validador_claro contra el validador_hash almacenado.
-$cookie_token = $selector . '|' . $validador_claro;
+// FIX M1: Se usa la constante centralizada Seguridad::TOKEN_SEPARATOR
+$cookie_token = $selector . Seguridad::TOKEN_SEPARATOR . $validador_claro;
 
-// ── 9. Enviar cookie segura al navegador ──────────────────────────────────────
+// ── 9. FIX C3: Enviar cookie segura al navegador ──────────────────────────────────
+// secure: true  → solo viaja por HTTPS (producción).  Cookie no enviada en HTTP.
+// secure: false → viaja también por HTTP (desarrollo local sin TLS).
+//
+// Se detecta automáticamente: en producción (HTTPS) el flag será true;
+// en localhost (HTTP) será false. Sin tocar código al hacer deploy.
+$es_https = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+
 setcookie(
     'axe_auth',           // Nombre de la cookie
     $cookie_token,        // Valor: selector|validador_claro
     [
-        'expires'   => $timestamp_expiracion,
-        'path'      => '/',
-        'domain'    => '',      // Dominio actual
-        'secure'    => false,    // Sólo HTTPS
-        'httponly'  => true,    // Inaccesible desde JavaScript
-        'samesite'  => 'Strict' // Protección CSRF adicional
+        'expires'  => $timestamp_expiracion,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $es_https,   // FIX C3: true en HTTPS, false en HTTP local
+        'httponly' => true,        // Inaccesible desde JavaScript
+        'samesite' => 'Strict',   // Protección CSRF adicional
     ]
 );
 

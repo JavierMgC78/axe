@@ -52,6 +52,16 @@ $datos_vista = [
 // ── 5. GESTOR DE RUTAS — Escuchar peticiones POST ─────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    // ── FIX A2: Validar token CSRF antes de procesar cualquier acción ──────────
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $csrf_recibido = (string) filter_input(INPUT_POST, 'csrf_token', FILTER_DEFAULT);
+    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrf_recibido)) {
+        http_response_code(403);
+        exit('Token CSRF inválido. Recarga la página e inténtalo de nuevo.');
+    }
+
     // ── 5a. Captura y Sanitización de campos ──────────────────────────────────
 
     // URI de la ruta (ej. /cobranza). Se elimina espacio y se fuerza string.
@@ -71,6 +81,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nivel_minimo = (int) filter_input(INPUT_POST, 'nivel_minimo', FILTER_VALIDATE_INT);
     if ($nivel_minimo < 0) {
         $nivel_minimo = 0;
+    }
+
+    // ── FIX C2: Validación estricta de las rutas ingresadas ───────────────────
+    // Impide path traversal (../../) e inyección de rutas arbitrarias.
+
+    // URI: solo letras, números, guiones y barras. Debe empezar por /
+    if (!preg_match('#^/[a-zA-Z0-9/_-]*$#', $uri) || strlen($uri) < 2 || strlen($uri) > 100) {
+        $datos_vista['mensaje_gestor'] = '❌ URI inválida. Usa solo letras, números, guiones y barras (ej. /mi-ruta).';
+        goto fin_gestor;
+    }
+
+    // Vista: debe estar en la carpeta views/ y tener extensión .php
+    if (!preg_match('#^views/[a-zA-Z0-9_-]+\.php$#', $vista)) {
+        $datos_vista['mensaje_gestor'] = '❌ Ruta de vista inválida. Formato esperado: views/nombre.php';
+        goto fin_gestor;
+    }
+
+    // Controlador (opcional): debe estar en controllers/ y seguir el patrón NombreController.php
+    if ($controlador !== null && !preg_match('#^controllers/[a-zA-Z0-9]+\.php$#', $controlador)) {
+        $datos_vista['mensaje_gestor'] = '❌ Ruta de controlador inválida. Formato esperado: controllers/NombreController.php';
+        goto fin_gestor;
     }
 
     // ── 5b. Automatización de Assets ──────────────────────────────────────────
@@ -151,10 +182,17 @@ PHP;
         $mensaje_gestor = 'Ruta "' . htmlspecialchars($uri, ENT_QUOTES, 'UTF-8') . '" creada correctamente y caché recompilada.';
 
     } catch (PDOException $e) {
-        // Captura error de URI duplicada u otro fallo de BD.
-        $mensaje_gestor = 'Error al guardar la ruta: ' . $e->getMessage();
+        // FIX M2: Loguear error internamente, no exponer al usuario.
+        error_log('DashboardController [crear_ruta]: ' . $e->getMessage());
+        if ($e->getCode() === '23000') {
+            $mensaje_gestor = '❌ La URI ingresada ya existe. Elige una diferente.';
+        } else {
+            $mensaje_gestor = '❌ Error interno al guardar la ruta. Contacta al administrador.';
+        }
     }
 
     // Añadir el mensaje al arreglo de datos de la vista.
-    $datos_vista['mensaje_gestor'] = $mensaje_gestor;
+    $datos_vista['mensaje_gestor'] = $mensaje_gestor ?? null;
+
+    fin_gestor: // Etiqueta de salida rápida para validaciones fallidas
 }
