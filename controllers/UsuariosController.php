@@ -29,6 +29,9 @@ global $usuario_autenticado_id;
 /** @var PDO $pdo */
 $pdo = require BASE_PATH . '/config/database.php';
 
+// Auditoria siempre disponible para todos los bloques de acción POST.
+require_once BASE_PATH . '/core/Auditoria.php';
+
 // Variable de mensaje; se definirá sólo si hubo una acción POST.
 $mensaje_usuarios = null;
 
@@ -70,6 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':nivel_acceso'  => $nivel_acceso,
             ]);
 
+            // ── REGISTRO FORENSE DE AUDITORÍA ──
+            Auditoria::registrar((int) $usuario_autenticado_id, 'USUARIO_CREADO', 'iam', [
+                'nuevo_email'    => $email,
+                'nivel_asignado' => $nivel_acceso
+            ]);
+            // ──────────────────────────────────────────
+
             $mensaje_usuarios = '✅ Usuario "' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '" creado correctamente.';
 
         } catch (PDOException $e) {
@@ -102,6 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje_usuarios = 'Error al cambiar el nivel de acceso: ' . $e->getMessage();
         }
 
+        // ── REGISTRO FORENSE (fuera del try para no silenciar errores de negocio) ──
+        // Usa $usuario_autenticado_id inyectado por el Middleware, NO $_SESSION.
+        Auditoria::registrar((int) $usuario_autenticado_id, 'CAMBIO_NIVEL', 'iam', [
+            'usuario_afectado_id' => $usuario_id,
+            'nuevo_nivel'         => $nuevo_nivel
+        ]);
+        // ────────────────────────────────────────────────────────────────────────────
+
     // ── 3c. TOGGLE ESTATUS (Soft Delete / Reactivación) ──────────────────────
     } elseif ($accion === 'toggle_estatus') {
 
@@ -126,6 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             $mensaje_usuarios = 'Error al cambiar el estatus del usuario: ' . $e->getMessage();
         }
+
+        // ── REGISTRO FORENSE (fuera del try para no silenciar errores de negocio) ──
+        // Usa $usuario_autenticado_id inyectado por el Middleware, NO $_SESSION.
+        Auditoria::registrar((int) $usuario_autenticado_id, 'TOGGLE_ESTATUS', 'iam', [
+            'usuario_afectado_id' => $usuario_id,
+            'estatus_asignado'    => $nuevo_estatus
+        ]);
+        // ────────────────────────────────────────────────────────────────────────────
     }
 }
 

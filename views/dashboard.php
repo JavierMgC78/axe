@@ -443,9 +443,20 @@
             <h2>Bienvenido, <span><?= htmlspecialchars($email_usuario ?? 'Usuario') ?></span></h2>
             <p>Esta es una zona protegida. Si estás viendo esto, el Middleware de validación criptográfica funcionó correctamente.</p>
             <div class="status-badge">Sesión autenticada</div>
-            <div style="margin-top: 20px; display: flex; gap: 15px;">
-                <a href="/usuarios" style="background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; transition: background 0.3s ease;">
+            <div style="margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                <a href="/usuarios"
+                   style="display:inline-flex;align-items:center;gap:0.45rem;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:10px 20px;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;border:1px solid rgba(99,102,241,.4);box-shadow:0 4px 14px rgba(99,102,241,.3);transition:all .22s;"
+                   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(99,102,241,.5)'"
+                   onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(99,102,241,.3)'"
+                   id="btn-ir-usuarios">
                     👥 Gestor de Usuarios
+                </a>
+                <a href="/auditoria"
+                   style="display:inline-flex;align-items:center;gap:0.45rem;background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(251,146,60,.12));color:#f87171;padding:10px 20px;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;border:1px solid rgba(239,68,68,.35);box-shadow:0 4px 14px rgba(239,68,68,.18);transition:all .22s;"
+                   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(239,68,68,.35)';this.style.borderColor='rgba(239,68,68,.6)'"
+                   onmouseout="this.style.transform='';this.style.boxShadow='0 4px 14px rgba(239,68,68,.18)';this.style.borderColor='rgba(239,68,68,.35)'"
+                   id="btn-ir-auditoria">
+                    🔍 Bitácora de Auditoría
                 </a>
             </div>
         </section>
