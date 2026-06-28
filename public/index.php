@@ -1,6 +1,34 @@
 <?php
 define('BASE_PATH', dirname(__DIR__));
 
+// ── SISTEMA DE LOGS SILENCIOSO ────────────────────────────────────────────────
+// 1. Crear el directorio de logs si no existe
+$logs_dir = BASE_PATH . '/storage/logs';
+if (!is_dir($logs_dir)) {
+    mkdir($logs_dir, 0777, true);
+}
+
+// 2. Directivas PHP: ocultar errores en frontend y activar registro interno
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// 3. Enrutar todos los errores al archivo centralizado del framework
+ini_set('error_log', $logs_dir . '/axe_errors.log');
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── INTERCEPTOR DE INSTALACIÓN ────────────────────────────────────────────────
+// Si config.php no existe en la raíz del proyecto, el sistema aún no ha sido
+// configurado. Se bloquea cualquier petición y se fuerza el flujo de instalación.
+if (!file_exists(BASE_PATH . '/config.php')) {
+    if (($_GET['action'] ?? '') !== 'install') {
+        header('Location: ?action=install');
+        exit;
+    }
+    require BASE_PATH . '/views/install.php';
+    exit;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── FIX B1: Headers de seguridad HTTP ────────────────────────────────────────
 // Se envían antes de cualquier output para garantizar su presencia en toda
 // respuesta del framework.
