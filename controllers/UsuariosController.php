@@ -186,7 +186,12 @@ try {
 // ── 5. Inyección a la Vista ───────────────────────────────────────────────────
 // El front controller llama a extract($datos_vista) antes de incluir la vista,
 // por lo que cada clave se convierte en una variable local disponible en el HTML.
+
+// Cargar lista maestra de roles desde el archivo de configuración central.
+$roles_config = require BASE_PATH . '/config/roles.php';
+
 $datos_vista = [
     'lista_usuarios'   => $lista_usuarios,
     'mensaje_usuarios' => $mensaje_usuarios ?? null,
+    'roles_config'     => $roles_config,
 ];

@@ -86,7 +86,9 @@
         <h1><?= htmlspecialchars($titulo_error) ?></h1>
         <p><?= htmlspecialchars($mensaje_error) ?></p>
         
-        <a href="/" class="btn-back">Regresar al Inicio</a>
+        <a href="<?= htmlspecialchars($ruta_retorno ?? '/') ?>" class="btn-back">
+            <?= ($ruta_retorno ?? '/') === '/' ? 'Ir al Inicio' : 'Cerrar Sesión' ?>
+        </a>
     </div>
 
 </body>

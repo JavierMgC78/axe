@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Axe Framework</title>
+    <link rel="stylesheet" href="../templates/layoutAdmin.css">
 
     <style>
         /* ── Reset y base ────────────────────────────────────────────────── */
@@ -198,40 +199,19 @@
             <!-- Enlac es estáticos -->
             <ul class="nav-links">
                 <li><a href="/">Inicio</a></li>
-                <li><a href="/nosotros">Nosotros</a></li>
-                <li><a href="/acerca-de">Acerca de Axe</a></li>
-                <?php if (isset($usuario_autenticado_id)): ?>
-                    <li><a href="/dashboard">Panel</a></li>
-                <?php endif; ?>
             </ul>
 
             <!-- Acciones dinámicas según sesión -->
             <div class="nav-actions">
-                <?php if (isset($usuario_autenticado_id)): ?>
-                    <a href="/logout" class="btn btn-primary">
-                        <!-- icono de salida -->
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-                             aria-hidden="true">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                            <polyline points="16 17 21 12 16 7"/>
-                            <line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
-                        Cerrar Sesión
+                <?php if (isset($_SESSION['usuario_id'])): /* Ajustar si tu variable de sesión tiene otro nombre */ ?>
+                    <!-- Usuario logueado: Mostrar botón al Panel -->
+                    <a href="/panel" class="btn btn-primary" title="Ir al Panel de Control">
+                        <i class="fas fa-cog"></i> Panel
                     </a>
                 <?php else: ?>
-                    <a href="/login" class="btn btn-primary">
-                        <!-- icono de entrada -->
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-                             aria-hidden="true">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                            <polyline points="10 17 15 12 10 7"/>
-                            <line x1="15" y1="12" x2="3" y2="12"/>
-                        </svg>
-                        Iniciar Sesión
+                    <!-- Visitante: Mostrar botón de Iniciar Sesión -->
+                    <a href="/login" class="btn btn-primary" title="Iniciar Sesión">
+                        <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
                     </a>
                 <?php endif; ?>
             </div>

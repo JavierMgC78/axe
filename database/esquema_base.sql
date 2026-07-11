@@ -59,9 +59,27 @@ CREATE TABLE IF NOT EXISTS `bitacora_auditoria` (
   `recurso` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `ip_origen` varchar(45) COLLATE utf8mb4_unicode_ci NOT NULL,
   `detalles` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `creado_en` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. Tabla de Roles (Catálogo de Niveles de Acceso)
+CREATE TABLE IF NOT EXISTS `roles` (
+  `nivel`       int(11)      NOT NULL,
+  `nombre`      varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `descripcion` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  PRIMARY KEY (`nivel`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Catálogo canónico de niveles de acceso del sistema.';
+
+-- ==============================================================================
+-- Inserción de Datos Estructurales (Roles Base del Sistema)
+-- ==============================================================================
+INSERT IGNORE INTO `roles` (`nivel`, `nombre`, `descripcion`) VALUES
+(0,   'Estándar / Alumnos',  'Usuarios con acceso básico de solo lectura. Nivel de entrada al sistema.'),
+(10,  'Operativo / Docentes', 'Usuarios operativos con permisos para gestionar contenido y registros.'),
+(50,  'Gerencial',            'Usuarios con acceso ampliado para supervisión y reportes avanzados.'),
+(100, 'Super Admin',          'Acceso total al sistema. Gestión de usuarios, roles, rutas y configuración.');
 
 -- ==============================================================================
 -- Inserción de Datos Estructurales (Rutas del Core)
@@ -70,4 +88,6 @@ INSERT IGNORE INTO `rutas` (`uri`, `vista`, `plantilla`, `controlador`, `requier
 ('/', 'views/home.php', 'templates/default.php', 'controllers/HomeController.php', 0, 0),
 ('/login', 'views/login.php', 'templates/default.php', 'controllers/LoginController.php', 0, 0),
 ('/logout', 'views/home.php', 'templates/default.php', 'controllers/LogoutController.php', 0, 0),
-('/dashboard', 'views/dashboard.php', 'templates/default.php', 'controllers/DashboardController.php', 1, 100);
+('/dashboard', 'views/dashboard.php', 'templates/layoutAdmin.php', 'controllers/DashboardController.php', 1, 100),
+('/gestor-rutas', 'views/gestor-rutas.php', 'templates/layoutAdmin.php', 'controllers/GestorRutasController.php', 1, 100),
+('/gestor-roles', 'views/gestor-roles.php', 'templates/layoutAdmin.php', 'controllers/GestorRolesController.php', 1, 100);

@@ -1,7 +1,8 @@
 <?php
 /**
  * views/usuarios.php - Vista parcial del modulo IAM.
- * Variables: $lista_usuarios (array), $mensaje_usuarios (string|null)
+ * Variables: $lista_usuarios (array), $mensaje_usuarios (string|null),
+ *            $roles_config (array) — cargado desde config/roles.php por el controlador.
  */
 ?>
 <style>
@@ -164,15 +165,11 @@
                 </label>
                 <div class="iam-select-wrap">
                     <select class="iam-select" id="iam-nivel-nuevo" name="nivel_acceso" required>
-                        <option value="0">0 &mdash; Publico</option>
-                        <option value="10">10 &mdash; Estudiante</option>
-                        <option value="20">20 &mdash; Docente</option>
-                        <option value="30">30 &mdash; Cobranza</option>
-                        <option value="40">40 &mdash; Coord. Nivel</option>
-                        <option value="50">50 &mdash; Coord. General</option>
-                        <option value="60">60 &mdash; Subdireccion</option>
-                        <option value="70">70 &mdash; Direccion</option>
-                        <option value="100">100 &mdash; SuperAdmin</option>
+                        <?php foreach ($roles_config as $nivel_val => $nivel_nombre) : ?>
+                            <option value="<?= (int) $nivel_val ?>">
+                                <?= (int) $nivel_val ?> &mdash; <?= htmlspecialchars($nivel_nombre, ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
             </div>
@@ -220,19 +217,10 @@
                 <tbody>
                     <?php foreach ($lista_usuarios as $fila) : ?>
                         <?php
-                            $nivel_num = (int) $fila['nivel_acceso'];
-                            switch ($nivel_num) {
-                                case 0:   $nivel_label = 'Publico';        break;
-                                case 10:  $nivel_label = 'Estudiante';     break;
-                                case 20:  $nivel_label = 'Docente';        break;
-                                case 30:  $nivel_label = 'Cobranza';       break;
-                                case 40:  $nivel_label = 'Coord. Nivel';   break;
-                                case 50:  $nivel_label = 'Coord. General'; break;
-                                case 60:  $nivel_label = 'Subdireccion';   break;
-                                case 70:  $nivel_label = 'Direccion';      break;
-                                case 100: $nivel_label = 'SuperAdmin';     break;
-                                default:  $nivel_label = 'Nivel ' . $nivel_num; break;
-                            }
+                            $nivel_num   = (int) $fila['nivel_acceso'];
+                            // Mapeo dinámico de nombre desde la lista maestra de roles.
+                            $nivel_label = $roles_config[$nivel_num] ?? ('Nivel ' . $nivel_num);
+                            // Mapa CSS: niveles conocidos tienen clase específica; resto cae en n-0.
                             $nivel_css_map = [0=>'n-0',10=>'n-10',20=>'n-20',30=>'n-30',
                                               40=>'n-40',50=>'n-50',60=>'n-60',
                                               70=>'n-70',100=>'n-100'];
@@ -266,15 +254,11 @@
                                         <input type="hidden" name="accion"     value="cambiar_nivel">
                                         <input type="hidden" name="usuario_id" value="<?= $safe_id ?>">
                                         <select name="nuevo_nivel" class="iam-mini-select" id="select-nivel-<?= $safe_id ?>" aria-label="Nuevo nivel usuario #<?= $safe_id ?>">
-                                            <option value="0"   <?= $nivel_num===0   ?'selected':'' ?>>0 &mdash; Publico</option>
-                                            <option value="10"  <?= $nivel_num===10  ?'selected':'' ?>>10 &mdash; Estudiante</option>
-                                            <option value="20"  <?= $nivel_num===20  ?'selected':'' ?>>20 &mdash; Docente</option>
-                                            <option value="30"  <?= $nivel_num===30  ?'selected':'' ?>>30 &mdash; Cobranza</option>
-                                            <option value="40"  <?= $nivel_num===40  ?'selected':'' ?>>40 &mdash; Coord. Nivel</option>
-                                            <option value="50"  <?= $nivel_num===50  ?'selected':'' ?>>50 &mdash; Coord. Gral.</option>
-                                            <option value="60"  <?= $nivel_num===60  ?'selected':'' ?>>60 &mdash; Subdireccion</option>
-                                            <option value="70"  <?= $nivel_num===70  ?'selected':'' ?>>70 &mdash; Direccion</option>
-                                            <option value="100" <?= $nivel_num===100 ?'selected':'' ?>>100 &mdash; SuperAdmin</option>
+                                            <?php foreach ($roles_config as $opt_val => $opt_nombre) : ?>
+                                                <option value="<?= (int) $opt_val ?>" <?= $nivel_num === (int) $opt_val ? 'selected' : '' ?>>
+                                                    <?= (int) $opt_val ?> &mdash; <?= htmlspecialchars($opt_nombre, ENT_QUOTES, 'UTF-8') ?>
+                                                </option>
+                                            <?php endforeach; ?>
                                         </select>
                                         <button type="submit" class="iam-btn-mini iam-btn-update" id="btn-nivel-<?= $safe_id ?>" title="Actualizar nivel">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="10" height="10">

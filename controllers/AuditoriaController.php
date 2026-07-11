@@ -37,11 +37,11 @@ try {
                 b.recurso,
                 b.detalles,
                 b.ip_origen,
-                b.fecha,
+                b.creado_en,
                 u.email AS actor_email
             FROM bitacora_auditoria b
             LEFT JOIN usuarios u ON b.usuario_id = u.id
-            ORDER BY b.fecha DESC
+            ORDER BY b.creado_en DESC
             LIMIT 100";
 
     $stmt    = $pdo->query($sql);

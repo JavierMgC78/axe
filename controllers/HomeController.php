@@ -23,5 +23,5 @@
 
 // Arreglo de datos que será inyectado en la vista mediante extract().
 $datos_vista = [
-    'titulo' => 'Bienvenido a Axe Framework Dinámico',
+    'titulo' => 'Bienvenido a Axe Framework',
 ];

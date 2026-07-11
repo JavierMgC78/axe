@@ -196,5 +196,6 @@ setcookie(
 );
 
 // ── 10. Redirección post-login ────────────────────────────────────────────────
-header('Location: /');
+// El usuario ya está autenticado: lo enviamos directamente al panel de control.
+header('Location: /dashboard');
 exit;

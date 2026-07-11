@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Merida');
 define('BASE_PATH', dirname(__DIR__));
 
 // ── SISTEMA DE LOGS SILENCIOSO ────────────────────────────────────────────────
@@ -30,6 +31,7 @@ if (!file_exists(BASE_PATH . '/config.php')) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── FIX B1: Headers de seguridad HTTP ────────────────────────────────────────
+
 // Se envían antes de cualquier output para garantizar su presencia en toda
 // respuesta del framework.
 header("X-Content-Type-Options: nosniff");
@@ -38,7 +40,25 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self';");
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$rutas = require BASE_PATH . '/config/rutas_cache.php';
+
+// ── AUTO-COMPILACIÓN DE CACHÉ DE RUTAS ───────────────────────────────────────
+// Si el archivo de caché no existe (fue borrado o nunca se generó), se
+// compila automáticamente desde la base de datos antes de continuar.
+// Esto evita errores fatales y hace el sistema auto-reparable.
+$ruta_cache = BASE_PATH . '/config/rutas_cache.php';
+if (!file_exists($ruta_cache)) {
+    require_once BASE_PATH . '/config/database.php';   // retorna $pdo
+    require_once BASE_PATH . '/core/Compilador.php';
+    try {
+        Compilador::actualizarRutas($pdo);
+    } catch (RuntimeException $e) {
+        error_log('Axe Router: fallo al regenerar caché de rutas — ' . $e->getMessage());
+        http_response_code(503);
+        exit('Error interno: no se pudo inicializar el sistema de rutas.');
+    }
+}
+$rutas = require $ruta_cache;
+// ─────────────────────────────────────────────────────────────────────────────
 
 if (!array_key_exists($uri, $rutas)) {
     http_response_code(404);
@@ -82,6 +102,7 @@ if (isset($_COOKIE['axe_auth'])) {
 }
 
 // ── FIX A2: Generar token CSRF para usuarios autenticados ─────────────────────
+
 // Se usa la sesión PHP exclusivamente para el token CSRF.
 // La arquitectura de autenticación (Split Token en cookie) no se altera.
 $csrf_token = '';
@@ -110,6 +131,7 @@ if (isset($ruta_activa['requiere_login']) && $ruta_activa['requiere_login'] == 1
         http_response_code(403);
         $titulo_error   = "Cuenta Suspendida";
         $mensaje_error  = "Tu acceso al sistema ha sido revocado. Por favor, contacta a coordinación para más detalles.";
+        $ruta_retorno   = '/logout'; // Cierra sesión y regresa a la zona pública
         require BASE_PATH . '/views/403.php';
         exit;
     }
@@ -120,6 +142,7 @@ if (isset($ruta_activa['requiere_login']) && $ruta_activa['requiere_login'] == 1
         http_response_code(403);
         $titulo_error  = "Acceso Restringido";
         $mensaje_error = "Esta área requiere un nivel de autorización superior (Nivel $nivel_requerido). Tu nivel actual es $usuario_nivel.";
+        $ruta_retorno  = '/'; // Regresa al inicio público; la sesión se preserva
         require BASE_PATH . '/views/403.php';
         exit;
     }
