@@ -395,6 +395,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
+    // ── HANDLER: Refrescar caché — accion=refrescar_cache
+    // ══════════════════════════════════════════════════════════════════════════
+    // Consulta la tabla rutas y sobreescribe config/rutas_cache.php de forma
+    // atómica (archivo temporal → rename). No borra el archivo antes de escribir
+    // para evitar la ventana de caché vacío en requests concurrentes.
+    // ══════════════════════════════════════════════════════════════════════════
+    elseif ($accion === 'refrescar_cache') {
+
+        if (!recompilar_cache_rutas($pdo)) {
+            $mensaje_gestor_rutas = '❌ Error al regenerar la caché de rutas.';
+            goto fin_post;
+        }
+
+        Auditoria::registrar((int) $usuario_autenticado_id, 'CACHE_RUTAS_REFRESCADA', 'gestor-rutas', [
+            'accion' => 'refrescar_cache',
+        ]);
+
+        header('Location: /gestor-rutas?ok=cache_refrescada');
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
     // ── HANDLER: Eliminar ruta — accion=eliminar_ruta
     // ══════════════════════════════════════════════════════════════════════════
     elseif ($accion === 'eliminar_ruta') {
@@ -458,12 +480,13 @@ try {
 // Mensajes de éxito desde el parámetro GET (después del PRG).
 if (!empty($_GET['ok'])) {
     $mensajes_ok = [
-        'layout'     => '✅ Plantilla actualizada correctamente y caché recompilada.',
-        'nivel'      => '✅ Nivel mínimo actualizado correctamente y caché recompilada.',
-        'vista_ctrl' => '✅ Vista y controlador actualizados correctamente y caché recompilada.',
-        'creada'     => '✅ Nueva ruta creada exitosamente y caché recompilada.',
-        'eliminada'  => '✅ Ruta eliminada correctamente y caché recompilada.',
-        '1'          => '✅ Operación realizada correctamente.',
+        'layout'           => '✅ Plantilla actualizada correctamente y caché recompilada.',
+        'nivel'            => '✅ Nivel mínimo actualizado correctamente y caché recompilada.',
+        'vista_ctrl'       => '✅ Vista y controlador actualizados correctamente y caché recompilada.',
+        'creada'           => '✅ Nueva ruta creada exitosamente y caché recompilada.',
+        'eliminada'        => '✅ Ruta eliminada correctamente y caché recompilada.',
+        'cache_refrescada' => '✅ rutas_cache.php actualizado correctamente desde la tabla rutas.',
+        '1'                => '✅ Operación realizada correctamente.',
     ];
     $ok_key = (string) $_GET['ok'];
     $mensaje_gestor_rutas = $mensajes_ok[$ok_key] ?? '✅ Operación realizada correctamente.';

@@ -143,6 +143,24 @@ $menu_herramientas = array_filter($menu_admin, fn($item) => $item['grupo'] === '
                 </li>
                 <?php endforeach; ?>
             </ul>
+
+            <?php if ($nivel_usuario >= 100): ?>
+            <!-- Botón: Refrescar caché de rutas -->
+            <form method="POST" action="/gestor-rutas" style="margin-top:.6rem;"
+                  onsubmit="return confirm('¿Regenerar rutas_cache.php desde la BD? El archivo actual se borrará.');">
+                <input type="hidden" name="accion"     value="refrescar_cache">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <button type="submit"
+                        title="Borra rutas_cache.php y lo regenera desde la tabla rutas"
+                        style="width:100%;display:flex;align-items:center;gap:.45rem;font-size:.8rem;font-weight:600;
+                               color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);
+                               border-radius:6px;padding:.38rem .75rem;cursor:pointer;transition:background .2s,color .2s;"
+                        onmouseover="this.style.background='rgba(251,191,36,.2)';this.style.color='#fde68a';"
+                        onmouseout="this.style.background='rgba(251,191,36,.08)';this.style.color='#fbbf24';">
+                    🔄 <span>Refrescar Caché Rutas</span>
+                </button>
+            </form>
+            <?php endif; ?>
             <?php endif; ?>
 
             <hr>

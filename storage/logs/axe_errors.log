@@ -106,3 +106,17 @@ Stack trace:
 [11-Jul-2026 20:31:32 Europe/Berlin] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
 [11-Jul-2026 14:40:23 America/Merida] Axe Security: vista fuera de directorio permitido: views/cobrar.php
 [11-Jul-2026 14:51:35 America/Merida] Axe Security: vista fuera de directorio permitido: views/cobrar.php
+[12-Jul-2026 16:33:49 America/Merida] Axe Security: vista fuera de directorio permitido: views/public/inicio_public.php
+[12-Jul-2026 16:34:47 America/Merida] Axe Security: vista fuera de directorio permitido: views/public/inicio_public.php
+[12-Jul-2026 16:35:31 America/Merida] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
+[12-Jul-2026 16:35:33 America/Merida] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
+[12-Jul-2026 16:36:08 America/Merida] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
+[12-Jul-2026 16:36:24 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:36:31 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:37:27 America/Merida] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
+[12-Jul-2026 16:45:42 America/Merida] Axe Security: plantilla fuera de directorio permitido: templates/layout_public.php
+[12-Jul-2026 16:46:08 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:46:10 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:46:12 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:46:19 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
+[12-Jul-2026 16:46:24 America/Merida] Axe Security: controlador fuera de directorio permitido: controllers/InicioController.php
