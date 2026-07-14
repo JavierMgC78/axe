@@ -7,7 +7,9 @@
  * Variables disponibles (inyectadas por GestorRutasController via extract()):
  *   $lista_rutas               (array)       — Registros de la tabla `rutas`.
  *   $roles_disponibles         (array)       — Mapa nivel→etiqueta de config/roles.php.
- *   $plantillas_disponibles    (array)       — Nombres de archivos en templates/*.php.
+ *   $plantillas_privadas       (array)       — Nombres de archivos en templates/*.php.
+ *   $plantillas_publicas       (array)       — Nombres de archivos en templates/public/*.php.
+ *   $plantillas_disponibles    (array)       — Alias retrocompat (= $plantillas_privadas).
  *   $vistas_disponibles        (array)       — Nombres de archivos en views/*.php.
  *   $controladores_disponibles (array)       — Nombres de archivos en controllers/*.php.
  *   $mensaje_gestor_rutas      (string|null) — Feedback de la operación POST.
@@ -490,6 +492,141 @@
     }
     .gr-btn-modal-save:active { transform: scale(.97); }
 
+    /* ── Edición inline de la celda Vista ── */
+    .gr-vista-cell {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+    .gr-vista-text {
+        color: #94a3b8; font-size: .79rem;
+        font-family: 'Courier New', monospace;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+    }
+    .gr-btn-edit-vista {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        color: #475569;
+        cursor: pointer;
+        flex-shrink: 0;
+        padding: 0;
+        transition: color .15s, border-color .15s, background .15s;
+        opacity: 0;
+    }
+    tr:hover .gr-btn-edit-vista,
+    .gr-btn-edit-vista:focus {
+        opacity: 1;
+    }
+    .gr-btn-edit-vista:hover {
+        color: #818cf8;
+        border-color: rgba(99,102,241,.3);
+        background: rgba(99,102,241,.08);
+    }
+    /* Modo edición */
+    .gr-vista-edit-wrap {
+        display: none;
+        align-items: center;
+        gap: .35rem;
+        width: 100%;
+    }
+    .gr-vista-edit-wrap.is-editing {
+        display: flex;
+    }
+    .gr-vista-cell.is-editing .gr-vista-text,
+    .gr-vista-cell.is-editing .gr-btn-edit-vista {
+        display: none;
+    }
+    .gr-vista-input {
+        flex: 1;
+        min-width: 0;
+        background: rgba(10,12,20,.9);
+        border: 1px solid rgba(99,102,241,.45);
+        border-radius: 6px;
+        color: #e2e8f0;
+        font-size: .78rem;
+        font-family: 'Courier New', monospace;
+        padding: .28rem .5rem;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99,102,241,.1);
+        transition: border-color .18s, box-shadow .18s;
+    }
+    .gr-vista-input:focus {
+        border-color: rgba(99,102,241,.7);
+        box-shadow: 0 0 0 3px rgba(99,102,241,.18);
+    }
+    .gr-vista-input.is-error {
+        border-color: rgba(239,68,68,.55);
+        box-shadow: 0 0 0 3px rgba(239,68,68,.12);
+    }
+    .gr-btn-vista-save {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px;
+        background: rgba(16,185,129,.18);
+        border: 1px solid rgba(16,185,129,.35);
+        border-radius: 6px;
+        color: #6ee7b7;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: background .15s, border-color .15s, transform .12s;
+    }
+    .gr-btn-vista-save:hover {
+        background: rgba(16,185,129,.3);
+        border-color: rgba(16,185,129,.6);
+        transform: scale(1.08);
+    }
+    .gr-btn-vista-cancel {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px;
+        background: rgba(239,68,68,.1);
+        border: 1px solid rgba(239,68,68,.25);
+        border-radius: 6px;
+        color: #f87171;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: background .15s, border-color .15s, transform .12s;
+    }
+    .gr-btn-vista-cancel:hover {
+        background: rgba(239,68,68,.2);
+        border-color: rgba(239,68,68,.5);
+        transform: scale(1.08);
+    }
+    .gr-btn-vista-save.is-loading,
+    .gr-btn-vista-cancel.is-loading {
+        opacity: .5; pointer-events: none;
+    }
+    /* ── Toast inline ── */
+    .gr-vista-toast {
+        font-size: .72rem;
+        padding: .18rem .5rem;
+        border-radius: 5px;
+        white-space: nowrap;
+        animation: grToastIn .25s ease;
+    }
+    @keyframes grToastIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .gr-vista-toast.ok  { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.3); }
+    .gr-vista-toast.err { background: rgba(239,68,68,.12);  color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+
+    /* ── Indicador de estado de archivo físico ── */
+    .gr-status-dot-error {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background-color: #ef4444; /* red-500 */
+        border-radius: 50%;
+        box-shadow: 0 0 6px rgba(239,68,68,.6);
+        flex-shrink: 0;
+    }
+
     /* ── Responsive ── */
     @media (max-width: 860px) {
         .gr-card { padding: 1.2rem; }
@@ -640,15 +777,28 @@
                         </select>
                     </td>
 
-                    <!-- Col 6: Plantilla -->
+                    <!-- Col 6: Plantilla (opciones según nivel seleccionado) -->
                     <td>
                         <select name="plantilla" id="inline-plantilla" class="gr-insert-select" required form="formNuevaRuta" aria-label="Plantilla para la nueva ruta">
                             <option value="">— Plantilla —</option>
-                            <?php foreach ($plantillas_disponibles as $plantilla) : ?>
-                                <option value="templates/<?= htmlspecialchars($plantilla, ENT_QUOTES, 'UTF-8') ?>">
-                                    <?= htmlspecialchars($plantilla, ENT_QUOTES, 'UTF-8') ?>
-                                </option>
-                            <?php endforeach; ?>
+                            <?php if (!empty($plantillas_privadas)) : ?>
+                                <optgroup label="🔒 Privadas (templates/)">
+                                    <?php foreach ($plantillas_privadas as $plt) : ?>
+                                        <option value="templates/<?= htmlspecialchars($plt, ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars($plt, ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                            <?php if (!empty($plantillas_publicas)) : ?>
+                                <optgroup label="🌐 Públicas (templates/public/)">
+                                    <?php foreach ($plantillas_publicas as $plt) : ?>
+                                        <option value="templates/public/<?= htmlspecialchars($plt, ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars($plt, ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
                         </select>
                     </td>
 
@@ -680,6 +830,10 @@
                             $safe_ctrl        = htmlspecialchars((string) ($ruta['controlador'] ?? ''), ENT_QUOTES, 'UTF-8');
                             $nivel_num        = (int) $ruta['nivel_minimo'];
                             $plantilla_actual = (string) $ruta['plantilla'];
+                            
+                            // Validación de existencia de archivo físico
+                            $vista_fisica = realpath(BASE_PATH . '/' . $ruta['vista']);
+                            $vista_existe = $vista_fisica !== false && is_file($vista_fisica);
                         ?>
                         <tr id="fila-ruta-<?= $safe_id ?>">
 
@@ -691,9 +845,65 @@
 
                             <!-- Vista -->
                             <td>
-                                <span class="gr-cell-vista" title="<?= $safe_vista ?>">
-                                    <?= $safe_vista ?>
-                                </span>
+                                <div class="gr-vista-cell" id="vista-cell-<?= $safe_id ?>">
+                                    <!-- Indicador de archivo no encontrado -->
+                                    <?php if (!$vista_existe) : ?>
+                                        <span class="gr-status-dot-error" title="El archivo físico no existe en el servidor" id="vista-dot-<?= $safe_id ?>"></span>
+                                    <?php endif; ?>
+                                    <!-- Texto actual -->
+                                    <span class="gr-vista-text" id="vista-text-<?= $safe_id ?>" title="<?= $safe_vista ?>">
+                                        <?= $safe_vista ?>
+                                    </span>
+                                    <!-- Botón lápiz (inline, discreto) -->
+                                    <button
+                                        type="button"
+                                        class="gr-btn-edit-vista"
+                                        id="btn-edit-vista-<?= $safe_id ?>"
+                                        aria-label="Editar vista de la ruta <?= $safe_uri ?>"
+                                        title="Editar vista"
+                                        onclick="grActivarEdicionVista(<?= $ruta['id'] ?>)"
+                                    >
+                                        <!-- lápiz mini -->
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                        </svg>
+                                    </button>
+                                    <!-- Controles de edición (ocultos por defecto) -->
+                                    <div class="gr-vista-edit-wrap" id="vista-edit-<?= $safe_id ?>">
+                                        <input
+                                            type="text"
+                                            class="gr-vista-input"
+                                            id="vista-input-<?= $safe_id ?>"
+                                            value="<?= $safe_vista ?>"
+                                            aria-label="Ruta de vista para <?= $safe_uri ?>"
+                                            data-original="<?= $safe_vista ?>"
+                                            data-id="<?= $safe_id ?>"
+                                        >
+                                        <!-- Guardar -->
+                                        <button
+                                            type="button"
+                                            class="gr-btn-vista-save"
+                                            id="btn-save-vista-<?= $safe_id ?>"
+                                            title="Guardar (Enter)"
+                                            aria-label="Guardar vista"
+                                            onclick="grGuardarVista(<?= $ruta['id'] ?>)"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                                        </button>
+                                        <!-- Cancelar -->
+                                        <button
+                                            type="button"
+                                            class="gr-btn-vista-cancel"
+                                            id="btn-cancel-vista-<?= $safe_id ?>"
+                                            title="Cancelar (Esc)"
+                                            aria-label="Cancelar edición"
+                                            onclick="grCancelarEdicionVista(<?= $ruta['id'] ?>)"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </td>
 
                             <!-- Controlador -->
@@ -736,7 +946,7 @@
                                 </form>
                             </td>
 
-                            <!-- Plantilla — <select> con autoguardado -->
+                            <!-- Plantilla — <select> con autoguardado (opciones según nivel de la ruta) -->
                             <td>
                                 <form
                                     method="POST"
@@ -754,9 +964,16 @@
                                         aria-label="Plantilla de la ruta <?= $safe_uri ?>"
                                         onchange="this.classList.add('saving'); this.form.submit();"
                                     >
-                                        <?php foreach ($plantillas_disponibles as $archivo) : ?>
+                                        <?php
+                                        // Rutas públicas (nivel 0) → templates/public/
+                                        // Rutas privadas (nivel > 0) → templates/
+                                        $es_publica   = ($nivel_num === 0);
+                                        $lista_plt    = $es_publica ? $plantillas_publicas  : $plantillas_privadas;
+                                        $prefijo_plt  = $es_publica ? 'templates/public/' : 'templates/';
+                                        ?>
+                                        <?php foreach ($lista_plt as $archivo) : ?>
                                             <?php
-                                                $valor_opcion = 'templates/' . $archivo;
+                                                $valor_opcion = $prefijo_plt . $archivo;
                                                 $selected     = ($plantilla_actual === $valor_opcion) ? 'selected' : '';
                                                 $safe_archivo = htmlspecialchars($archivo, ENT_QUOTES, 'UTF-8');
                                                 $safe_valor   = htmlspecialchars($valor_opcion, ENT_QUOTES, 'UTF-8');
@@ -765,6 +982,9 @@
                                                 <?= $safe_archivo ?>
                                             </option>
                                         <?php endforeach; ?>
+                                        <?php if (empty($lista_plt)) : ?>
+                                            <option value="" disabled>Sin plantillas disponibles</option>
+                                        <?php endif; ?>
                                     </select>
                                 </form>
                             </td>
@@ -936,28 +1156,21 @@
 (function () {
     'use strict';
 
-    const overlay  = document.getElementById('gr-modal-edicion');
-    const inputId  = document.getElementById('gr-modal-id');
-    const selVista = document.getElementById('gr-modal-vista');
-    const selCtrl  = document.getElementById('gr-modal-ctrl');
+    // ───────────────────────────────────────────────────────────────────────
+    // MODAL DE EDICIÓN (vista y controlador) — comportamiento ya existente
+    // ───────────────────────────────────────────────────────────────────────
+    const overlay   = document.getElementById('gr-modal-edicion');
+    const inputId   = document.getElementById('gr-modal-id');
+    const selVista  = document.getElementById('gr-modal-vista');
+    const selCtrl   = document.getElementById('gr-modal-ctrl');
     const subtitulo = document.getElementById('gr-modal-subtitulo');
 
-    /**
-     * Abre el modal de edición y precarga los valores actuales de la ruta.
-     *
-     * @param {number} id          - ID de la ruta.
-     * @param {string} vistaActual - Valor actual del campo `vista` (e.g. "views/home.php").
-     * @param {string} ctrlActual  - Valor actual del campo `controlador` o "" si es NULL.
-     */
+    /** Abre el modal de edición y precarga los valores actuales de la ruta. */
     window.grAbrirModalEdicion = function (id, vistaActual, ctrlActual) {
-        // Cargar valores en el formulario
         inputId.value = id;
         subtitulo.textContent = 'Ruta ID #' + id;
 
-        // Seleccionar la opción correcta en el <select> de vista
         if (selVista) {
-            const vistaOpt = selVista.querySelector('option[value="' + CSS.escape(vistaActual) + '"]');
-            // Fallback: iterar si CSS.escape no coincide exactamente
             let found = false;
             for (const opt of selVista.options) {
                 if (opt.value === vistaActual) { opt.selected = true; found = true; }
@@ -966,17 +1179,15 @@
             if (!found) selVista.selectedIndex = 0;
         }
 
-        // Seleccionar la opción correcta en el <select> de controlador
         if (selCtrl) {
             let found = false;
             for (const opt of selCtrl.options) {
                 if (opt.value === ctrlActual) { opt.selected = true; found = true; }
                 else { opt.selected = false; }
             }
-            if (!found) selCtrl.selectedIndex = 0; // “Sin controlador”
+            if (!found) selCtrl.selectedIndex = 0;
         }
 
-        // Abrir el modal con animación
         overlay.classList.add('is-open');
         overlay.focus();
     };
@@ -986,16 +1197,174 @@
         overlay.classList.remove('is-open');
     };
 
-    // Cerrar al hacer clic en el overlay (fuera de la caja del modal)
     overlay.addEventListener('click', function (e) {
         if (e.target === overlay) grCerrarModal();
     });
 
-    // Cerrar con tecla Escape
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && overlay.classList.contains('is-open')) {
             grCerrarModal();
         }
     });
+
+    // ───────────────────────────────────────────────────────────────────────
+    // EDICIÓN INLINE DE VISTA (AJAX)
+    // ───────────────────────────────────────────────────────────────────────
+    // Leer el CSRF token del primer input oculto disponible en la página
+    const CSRF_TOKEN = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+
+    /**
+     * Activa el modo edición inline en la celda Vista de la fila indicada.
+     * @param {number} id - ID de la ruta.
+     */
+    window.grActivarEdicionVista = function (id) {
+        const cell     = document.getElementById('vista-cell-' + id);
+        const editWrap = document.getElementById('vista-edit-' + id);
+        const input    = document.getElementById('vista-input-' + id);
+
+        if (!cell || !editWrap || !input) return;
+
+        cell.classList.add('is-editing');
+        editWrap.classList.add('is-editing');
+        input.classList.remove('is-error');
+
+        input.focus();
+        input.select();
+
+        // Guardar con Enter, cancelar con Escape
+        input._grKeyHandler = function (e) {
+            if (e.key === 'Enter')  { e.preventDefault(); grGuardarVista(id); }
+            if (e.key === 'Escape') { grCancelarEdicionVista(id); }
+        };
+        input.addEventListener('keydown', input._grKeyHandler);
+    };
+
+    /**
+     * Cancela la edición inline y restaura el valor original.
+     * @param {number} id
+     */
+    window.grCancelarEdicionVista = function (id) {
+        const cell     = document.getElementById('vista-cell-' + id);
+        const editWrap = document.getElementById('vista-edit-' + id);
+        const input    = document.getElementById('vista-input-' + id);
+
+        if (!cell || !editWrap || !input) return;
+
+        input.value = input.dataset.original;
+        input.classList.remove('is-error');
+
+        cell.classList.remove('is-editing');
+        editWrap.classList.remove('is-editing');
+
+        if (input._grKeyHandler) {
+            input.removeEventListener('keydown', input._grKeyHandler);
+        }
+    };
+
+    /**
+     * Envía la nueva vista vía AJAX y actualiza la celda sin recargar.
+     * @param {number} id
+     */
+    window.grGuardarVista = function (id) {
+        const cell      = document.getElementById('vista-cell-' + id);
+        const editWrap  = document.getElementById('vista-edit-' + id);
+        const input     = document.getElementById('vista-input-' + id);
+        const btnSave   = document.getElementById('btn-save-vista-' + id);
+        const btnCancel = document.getElementById('btn-cancel-vista-' + id);
+        const textSpan  = document.getElementById('vista-text-' + id);
+
+        if (!input) return;
+
+        const nuevaVista = input.value.trim();
+        input.classList.remove('is-error');
+
+        // Validación mínima en cliente
+        if (!nuevaVista.startsWith('views/') || !nuevaVista.endsWith('.php')) {
+            input.classList.add('is-error');
+            grMostrarToastVista(id, 'Debe comenzar con views/ y terminar en .php', 'err');
+            input.focus();
+            return;
+        }
+
+        // Sin cambios → solo cancela
+        if (nuevaVista === input.dataset.original) {
+            grCancelarEdicionVista(id);
+            return;
+        }
+
+        // Estado de carga
+        btnSave.classList.add('is-loading');
+        btnCancel.classList.add('is-loading');
+        input.disabled = true;
+
+        const body = new URLSearchParams({
+            csrf_token : CSRF_TOKEN,
+            accion     : 'ajax_actualizar_vista',
+            id         : String(id),
+            vista      : nuevaVista,
+        });
+
+        fetch('/gestor-rutas', {
+            method  : 'POST',
+            headers : { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body    : body.toString(),
+        })
+        .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            if (data.ok) {
+                // Éxito: actualizar texto visible y salir del modo edición
+                textSpan.textContent   = data.vista;
+                textSpan.title         = data.vista;
+                input.dataset.original = data.vista;
+
+                cell.classList.remove('is-editing');
+                editWrap.classList.remove('is-editing');
+                if (input._grKeyHandler) input.removeEventListener('keydown', input._grKeyHandler);
+
+                grMostrarToastVista(id, '✓ Guardado', 'ok');
+            } else {
+                input.classList.add('is-error');
+                grMostrarToastVista(id, data.error || 'Error al guardar', 'err');
+                input.focus();
+            }
+        })
+        .catch(function () {
+            input.classList.add('is-error');
+            grMostrarToastVista(id, 'Error de red. Inténtalo de nuevo.', 'err');
+            input.focus();
+        })
+        .finally(function () {
+            btnSave.classList.remove('is-loading');
+            btnCancel.classList.remove('is-loading');
+            input.disabled = false;
+        });
+    };
+
+    /**
+     * Muestra un pequeño toast inline debajo de la celda, que desaparece solo.
+     * @param {number} id
+     * @param {string} msg
+     * @param {'ok'|'err'} tipo
+     */
+    function grMostrarToastVista(id, msg, tipo) {
+        const previo = document.getElementById('vista-toast-' + id);
+        if (previo) previo.remove();
+
+        const td = document.getElementById('vista-cell-' + id) &&
+                   document.getElementById('vista-cell-' + id).closest('td');
+        if (!td) return;
+
+        const toast = document.createElement('div');
+        toast.id          = 'vista-toast-' + id;
+        toast.className   = 'gr-vista-toast ' + tipo;
+        toast.textContent = msg;
+        td.appendChild(toast);
+
+        setTimeout(function () { toast.remove(); }, 3000);
+    }
+
 }());
 </script>

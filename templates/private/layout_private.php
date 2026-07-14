@@ -23,13 +23,13 @@ $menu_admin = [
     ],
     [
         'titulo'        => '👥 Gestor de Usuarios',
-        'url'           => '/usuarios',
+        'url'           => '/gestor-usuarios',
         'nivel_minimo'  => 70,
         'grupo'         => 'herramientas',
     ],
     [
         'titulo'        => '🔍 Bitácora de Auditoría',
-        'url'           => '/auditoria',
+        'url'           => '/bitacora-auditoria',
         'nivel_minimo'  => 100,
         'grupo'         => 'herramientas',
     ],

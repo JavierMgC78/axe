@@ -33,14 +33,26 @@ require_once BASE_PATH . '/core/Auditoria.php';
 $pdo = require BASE_PATH . '/config/database.php';
 
 // ── 3. Escanear recursos disponibles desde el sistema de archivos ─────────────
-// Plantillas (templates/*.php)
-$archivos_plantillas    = glob(BASE_PATH . '/templates/*.php');
-$plantillas_disponibles = [];
-if (is_array($archivos_plantillas)) {
-    foreach ($archivos_plantillas as $ruta_fisica) {
-        $plantillas_disponibles[] = basename($ruta_fisica);
+// Plantillas privadas (templates/*.php — raíz, excluye subcarpetas)
+$archivos_priv    = glob(BASE_PATH . '/templates/*.php');
+$plantillas_privadas = [];
+if (is_array($archivos_priv)) {
+    foreach ($archivos_priv as $ruta_fisica) {
+        $plantillas_privadas[] = basename($ruta_fisica);
     }
 }
+
+// Plantillas públicas (templates/public/*.php)
+$archivos_pub    = glob(BASE_PATH . '/templates/public/*.php');
+$plantillas_publicas = [];
+if (is_array($archivos_pub)) {
+    foreach ($archivos_pub as $ruta_fisica) {
+        $plantillas_publicas[] = basename($ruta_fisica);
+    }
+}
+
+// Unión para validación — todas las plantillas reconocidas
+$plantillas_disponibles = $plantillas_privadas;
 
 // Vistas (views/*.php)
 $archivos_vistas    = glob(BASE_PATH . '/views/*.php');
@@ -153,12 +165,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $plantilla_raw     = trim((string) filter_input(INPUT_POST, 'plantilla', FILTER_DEFAULT));
-        $archivo_plantilla = basename($plantilla_raw);
-        $valor_canonico    = 'templates/' . $archivo_plantilla;
+
+        // Aceptar tanto templates/<archivo>.php como templates/public/<archivo>.php
+        if (str_starts_with($plantilla_raw, 'templates/public/')) {
+            $archivo_plantilla = basename($plantilla_raw);
+            $valor_canonico    = 'templates/public/' . $archivo_plantilla;
+            $lista_valida      = $plantillas_publicas;
+        } else {
+            $archivo_plantilla = basename($plantilla_raw);
+            $valor_canonico    = 'templates/' . $archivo_plantilla;
+            $lista_valida      = $plantillas_privadas;
+        }
 
         if (
             $plantilla_raw !== $valor_canonico ||
-            !in_array($archivo_plantilla, $plantillas_disponibles, true)
+            !in_array($archivo_plantilla, $lista_valida, true)
         ) {
             $mensaje_gestor_rutas = '❌ Plantilla no válida. Selecciona una opción del listado.';
             goto fin_post;
@@ -272,12 +293,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $nivel = (int) $nivel_raw;
 
-        // Plantilla — validar por lista blanca
-        $plantilla_raw     = trim((string) filter_input(INPUT_POST, 'plantilla', FILTER_DEFAULT));
-        $archivo_plantilla = basename(str_replace('templates/', '', $plantilla_raw));
-        $valor_plantilla   = 'templates/' . $archivo_plantilla;
+        // Plantilla — validar por lista blanca (soporta templates/ y templates/public/)
+        $plantilla_raw = trim((string) filter_input(INPUT_POST, 'plantilla', FILTER_DEFAULT));
 
-        if ($plantilla_raw !== $valor_plantilla || !in_array($archivo_plantilla, $plantillas_disponibles, true)) {
+        if (str_starts_with($plantilla_raw, 'templates/public/')) {
+            $archivo_plantilla = basename($plantilla_raw);
+            $valor_plantilla   = 'templates/public/' . $archivo_plantilla;
+            $lista_valida_plt  = $plantillas_publicas;
+        } else {
+            $archivo_plantilla = basename(str_replace('templates/', '', $plantilla_raw));
+            $valor_plantilla   = 'templates/' . $archivo_plantilla;
+            $lista_valida_plt  = $plantillas_privadas;
+        }
+
+        if ($plantilla_raw !== $valor_plantilla || !in_array($archivo_plantilla, $lista_valida_plt, true)) {
             $mensaje_gestor_rutas = '❌ Plantilla no válida.';
             goto fin_post;
         }
@@ -395,6 +424,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
+    // ── HANDLER AJAX: Actualizar solo la vista inline — accion=ajax_actualizar_vista
+    // ══════════════════════════════════════════════════════════════════════════
+    // Responde siempre JSON. La vista se valida verificando que el archivo exista
+    // físicamente en BASE_PATH (acepta subdirectorios como views/private/).
+    // ══════════════════════════════════════════════════════════════════════════
+    elseif ($accion === 'ajax_actualizar_vista') {
+
+        header('Content-Type: application/json; charset=UTF-8');
+
+        $id = (int) filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if ($id < 1) {
+            echo json_encode(['ok' => false, 'error' => 'ID de ruta inválido.']);
+            exit;
+        }
+
+        $vista_raw = trim((string) filter_input(INPUT_POST, 'vista', FILTER_DEFAULT));
+
+        // Seguridad: evitar path traversal — la ruta debe comenzar con "views/"
+        // y no puede contener "..".
+        if (
+            empty($vista_raw) ||
+            !str_starts_with($vista_raw, 'views/') ||
+            str_contains($vista_raw, '..') ||
+            !str_ends_with($vista_raw, '.php')
+        ) {
+            echo json_encode(['ok' => false, 'error' => 'Ruta de vista inválida. Debe comenzar con views/ y terminar en .php']);
+            exit;
+        }
+
+        // Verificar que el archivo exista físicamente
+        $ruta_fisica = realpath(BASE_PATH . '/' . $vista_raw);
+        $views_dir   = realpath(BASE_PATH . '/views');
+
+        if (!$ruta_fisica || !str_starts_with($ruta_fisica, $views_dir)) {
+            echo json_encode(['ok' => false, 'error' => 'El archivo de vista no existe en el servidor.']);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->prepare('UPDATE rutas SET vista = :vista WHERE id = :id');
+            $stmt->execute([':vista' => $vista_raw, ':id' => $id]);
+
+            if ($stmt->rowCount() === 0) {
+                echo json_encode(['ok' => false, 'error' => 'No se encontró la ruta con ese ID.']);
+                exit;
+            }
+
+            if (!recompilar_cache_rutas($pdo)) {
+                echo json_encode(['ok' => false, 'error' => 'Vista actualizada pero falló la recompilación del caché.']);
+                exit;
+            }
+
+            Auditoria::registrar((int) $usuario_autenticado_id, 'RUTA_VISTA_ACTUALIZADA_AJAX', 'gestor-rutas', [
+                'ruta_id'    => $id,
+                'nueva_vista' => $vista_raw,
+            ]);
+
+            echo json_encode(['ok' => true, 'vista' => $vista_raw]);
+            exit;
+
+        } catch (PDOException $e) {
+            error_log('GestorRutasController [ajax_actualizar_vista]: ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'error' => 'Error interno al actualizar la vista.']);
+            exit;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
     // ── HANDLER: Refrescar caché — accion=refrescar_cache
     // ══════════════════════════════════════════════════════════════════════════
     // Consulta la tabla rutas y sobreescribe config/rutas_cache.php de forma
@@ -483,6 +580,7 @@ if (!empty($_GET['ok'])) {
         'layout'           => '✅ Plantilla actualizada correctamente y caché recompilada.',
         'nivel'            => '✅ Nivel mínimo actualizado correctamente y caché recompilada.',
         'vista_ctrl'       => '✅ Vista y controlador actualizados correctamente y caché recompilada.',
+        'vista'            => '✅ Vista actualizada correctamente y caché recompilada.',
         'creada'           => '✅ Nueva ruta creada exitosamente y caché recompilada.',
         'eliminada'        => '✅ Ruta eliminada correctamente y caché recompilada.',
         'cache_refrescada' => '✅ rutas_cache.php actualizado correctamente desde la tabla rutas.',
@@ -496,7 +594,9 @@ if (!empty($_GET['ok'])) {
 $datos_vista = [
     'lista_rutas'              => $lista_rutas,
     'roles_disponibles'        => $roles_disponibles,
-    'plantillas_disponibles'   => $plantillas_disponibles,
+    'plantillas_disponibles'   => $plantillas_disponibles,   // retrocompatibilidad
+    'plantillas_privadas'      => $plantillas_privadas,
+    'plantillas_publicas'      => $plantillas_publicas,
     'vistas_disponibles'       => $vistas_disponibles,
     'controladores_disponibles'=> $controladores_disponibles,
     'mensaje_gestor_rutas'     => $mensaje_gestor_rutas,
